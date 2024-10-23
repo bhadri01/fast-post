@@ -19,7 +19,9 @@ sed -i '/ slave.db/d' /etc/hosts
 # Add the new entries
 echo "$MASTER_IP master.db" >> /etc/hosts
 echo "$MASTER_IP slave.db" >> /etc/hosts
+echo "$MASTER_IP api.db" >> /etc/hosts
 
 echo "IP addresses successfully updated in /etc/hosts:"
 echo "$MASTER_IP master.db"
 echo "$MASTER_IP slave.db"
+echo "$MASTER_IP api.db"

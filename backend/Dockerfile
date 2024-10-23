@@ -7,10 +7,11 @@ ARG POSTGRES_PASSWORD
 ARG POSTGRES_DB
 
 # Install necessary packages
-RUN apk add --no-cache git postgresql-dev shadow
+RUN apk add --no-cache git postgresql-dev shadow docker busybox-extras  
 
 # Create the new user 'succeedEx' and set up environment
 RUN useradd -m succeedEx 
+RUN usermod -aG docker succeedEx
 
 # Set necessary environment variables
 ENV POSTGRESQL_DATABASE_MASTER_URL="postgresql+asyncpg://$POSTGRES_USER:$POSTGRES_PASSWORD@master.db/$POSTGRES_DB" \
@@ -28,6 +29,7 @@ RUN git clone https://github.com/Anish13kumar/Fastapi_PostgreSQL /home/succeedEx
 
 # Switch back to root to install dependencies
 RUN pip install -r /home/succeedEx/backend/requirements.txt
+RUN pip install pika
 
 USER root
 # Copy and configure the Traefik script

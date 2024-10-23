@@ -79,7 +79,7 @@ def main():
     docker_compose_up()
 
     # Step 3: Execute script inside the backend container
-    execute_in_container()
+    # execute_in_container()
 
     print("All services are up and running!")
 

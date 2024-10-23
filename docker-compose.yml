@@ -6,26 +6,29 @@ services:
       - "--api.insecure=true"
       - "--providers.docker"
       - "--entrypoints.postgres.address=:5432"
+      - "--entrypoints.amqp.address=:5671"
       - "--log.level=DEBUG"
       - "--log.format=json"
       - "--log.filePath=/traefik.log"
       - "--accesslog=true"
-      - "--accesslog.filepath=/traefik_access.log"
     ports:
       - "8080:8080"  # Traefik dashboard
     networks:
-      - pg-cluster-net
+      pg-cluster-net:
+        aliases:
+          - "master.db"
+          - "slave.db"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    restart: on-failure  # Add this line to restart on failure
+    restart: on-failure 
 
   master-db:
     build:
       context: ./masterdb
       dockerfile: Dockerfile
     container_name: master-db
-    depends_on:
-      - traefik
+    # depends_on:
+    #   - traefik
     # environment:
       # POSTGRES_USER: myuser
       # POSTGRES_PASSWORD: mypassword
@@ -48,8 +51,8 @@ services:
     container_name: "adminer"
     image: adminer:latest
     hostname: "adminer"
-    depends_on:
-      - master-db
+    # depends_on:
+    #   - master-db
     restart: always
     environment:
       ADMINER_DESIGN: 'dracula'
@@ -62,9 +65,9 @@ services:
       context: ./slavedb
       dockerfile: Dockerfile
     container_name: slave-db
-    depends_on:
-      - master-db
-      - adminer
+    # depends_on:
+    #   - master-db
+    #   - adminer
     # environment:
     #   POSTGRES_USER: myuser
     #   POSTGRES_PASSWORD: mypassword
@@ -86,10 +89,10 @@ services:
       context: ./slavedb
       dockerfile: Dockerfile
     container_name: slave-db-2
-    depends_on:
-      - master-db
-      - adminer
-      - slave-db
+    # depends_on:
+    #   - master-db
+    #   - adminer
+    #   - slave-db
     # environment:
     #   POSTGRES_USER: myuser
     #   POSTGRES_PASSWORD: mypassword
@@ -112,13 +115,36 @@ services:
       dockerfile: Dockerfile
     container_name: backend
     hostname: backend
-    depends_on:
-      - traefik
-      - slave-db
-      - slave-db-2
+    # depends_on:
+    #   - traefik
+    #   - slave-db
+    #   - slave-db-2
     networks:
       - pg-cluster-net
-    restart: on-failure  # Add this line to restart on failure
+    restart: on-failure 
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  rabbitmq:
+    build:
+      context: ./rabbitmq
+      dockerfile: Dockerfile
+    container_name: rabbitmq
+    hostname: rabbitmq
+    labels:
+      - "traefik.enable=true"
+      - "traefik.tcp.routers.amqp.rule=HostSNI(`*`)" 
+      - "traefik.tcp.routers.amqp.entrypoints=amqp"
+      - "traefik.tcp.routers.amqp.tls=true"
+      - "traefik.tcp.routers.amqp.tls.certresolver=myresolver"
+      - "traefik.tcp.routers.amqp.tls.passthrough=false"
+      - "traefik.tcp.services.amqp.loadbalancer.server.port=5671"
+
+    restart: on-failure
+    environment:
+      - "RABBITMQ_SSL: false"
+    networks:
+      - pg-cluster-net 
 
 volumes:
   master_data:
