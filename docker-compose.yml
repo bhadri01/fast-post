@@ -12,7 +12,7 @@ services:
       - "--log.filePath=/traefik.log"
       - "--accesslog=true"
     ports:
-      - "8080:8080"  # Traefik dashboard
+      - "8080:8080"
     networks:
       pg-cluster-net:
         aliases:
@@ -29,10 +29,6 @@ services:
     container_name: master-db
     # depends_on:
     #   - traefik
-    # environment:
-      # POSTGRES_USER: myuser
-      # POSTGRES_PASSWORD: mypassword
-      # POSTGRES_DB: mydb
     volumes:
       - master_data:/var/lib/postgresql/data
     networks:
@@ -68,10 +64,6 @@ services:
     # depends_on:
     #   - master-db
     #   - adminer
-    # environment:
-    #   POSTGRES_USER: myuser
-    #   POSTGRES_PASSWORD: mypassword
-    #   POSTGRES_DB: mydb
     networks:
       - pg-cluster-net
     labels:
@@ -93,10 +85,6 @@ services:
     #   - master-db
     #   - adminer
     #   - slave-db
-    # environment:
-    #   POSTGRES_USER: myuser
-    #   POSTGRES_PASSWORD: mypassword
-    #   POSTGRES_DB: mydb
     networks:
       - pg-cluster-net
     labels:
