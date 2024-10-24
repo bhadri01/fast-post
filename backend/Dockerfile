@@ -15,7 +15,7 @@ RUN usermod -aG docker succeedEx
 
 # Set necessary environment variables
 ENV POSTGRESQL_DATABASE_MASTER_URL="postgresql+asyncpg://$POSTGRES_USER:$POSTGRES_PASSWORD@master.db/$POSTGRES_DB" \
-    POSTGRESQL_DATABASE_SLAVE_URL="postgresql+asyncpg://$POSTGRES_USER:$POSTGRES_PASSWORD@master.db/$POSTGRES_DB"
+    POSTGRESQL_DATABASE_SLAVE_URL="postgresql+asyncpg://$POSTGRES_USER:$POSTGRES_PASSWORD@slave.db/$POSTGRES_DB"
 
 # Set the working directory to the new user’s home
 WORKDIR /home/succeedEx/
