@@ -20,7 +20,9 @@ services:
           - "slave.db"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    restart: on-failure 
+    restart: always
+    labels:
+      - "traefik.enable=false" 
 
   master-db:
     build:
@@ -40,8 +42,9 @@ services:
       - "traefik.tcp.routers.master-db.service=master-db"
       - "traefik.tcp.routers.master-db.tls=true"
       - "traefik.tcp.routers.master-db.tls.certresolver=myresolver"
+      - "traefik.tcp.routers.master.tls.passthrough=true"
       - "traefik.tcp.services.master-db.loadbalancer.server.port=5432"
-    restart: on-failure  # Add this line to restart on failure
+    restart: always  # Add this line to restart on failure
 
   adminer:
     container_name: "adminer"
@@ -54,7 +57,9 @@ services:
       ADMINER_DESIGN: 'dracula'
       ADMINER_DEFAULT_SERVER: 'master-db'
     networks:
-      - pg-cluster-net  # Add this line to restart on failure
+      - pg-cluster-net 
+    labels:
+      - "traefik.enable=false"
 
   slave-db:
     build:
@@ -73,13 +78,12 @@ services:
       - "traefik.tcp.routers.slave-db.service=slave-db"
       - "traefik.tcp.routers.slave-db.tls=true"
       - "traefik.tcp.routers.slave-db.tls.certresolver=myresolver"
+      - "traefik.tcp.routers.slave-db.tls.passthrough=false"
       - "traefik.tcp.services.slave-db.loadbalancer.server.port=5432"
-    restart: on-failure  # Add this line to restart on failure
+    restart: always  # Add this line to restart on failure
 
   slave-db-2:
-    build:
-      context: ./slavedb
-      dockerfile: Dockerfile
+    image: fast-post-slave-db:latest
     container_name: slave-db-2
     # depends_on:
     #   - master-db
@@ -94,8 +98,9 @@ services:
       - "traefik.tcp.routers.slave-db.service=slave-db"
       - "traefik.tcp.routers.slave-db.tls=true"
       - "traefik.tcp.routers.slave-db.tls.certresolver=myresolver"
+      - "traefik.tcp.routers.slave-db.tls.passthrough=false"
       - "traefik.tcp.services.slave-db.loadbalancer.server.port=5432"
-    restart: on-failure  # Add this line to restart on failure
+    restart: always  # Add this line to restart on failure
 
   backend:
     build:
@@ -109,9 +114,11 @@ services:
     #   - slave-db-2
     networks:
       - pg-cluster-net
-    restart: on-failure 
+    restart: always 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=false"
 
   rabbitmq:
     build:
@@ -128,7 +135,7 @@ services:
       - "traefik.tcp.routers.amqp.tls.passthrough=false"
       - "traefik.tcp.services.amqp.loadbalancer.server.port=5671"
 
-    restart: on-failure
+    restart: always
     environment:
       - "RABBITMQ_SSL: false"
     networks:

@@ -24,12 +24,11 @@ WORKDIR /home/succeedEx/
 USER succeedEx
 RUN chown succeedEx:succeedEx /home/succeedEx/
 # Clone the GitHub repository into the user’s home directory
-# RUN git clone https://oauth2:$GITLAB_ACCESS_TOKEN@gitlab.com/succeedex/backend-crm.git /home/succeedEx/backend/
+# RUN git clone https://oauth2:$GITLAB_ACCESS_TOKEN@gitlab.com/succeedex/backend.git /home/succeedEx/backend/
 RUN git clone https://github.com/Anish13kumar/Fastapi_PostgreSQL /home/succeedEx/backend/
 
 # Switch back to root to install dependencies
 RUN pip install -r /home/succeedEx/backend/requirements.txt
-RUN pip install pika
 
 USER root
 # Copy and configure the Traefik script

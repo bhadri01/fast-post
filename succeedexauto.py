@@ -11,6 +11,8 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 GITLAB_ACCESS_TOKEN = os.getenv("GITLAB_ACCESS_TOKEN")
 
+PG_HBA_PATH = "masterdb/init.sh"  # Path to the pg_hba.conf file
+
 def run_command(command, cwd=None):
     """Run a system command and print its output in real-time."""
     try:
@@ -27,6 +29,31 @@ def run_command(command, cwd=None):
     except subprocess.CalledProcessError as e:
         print(f"Command failed: {e.cmd}\nExit code: {e.returncode}")
         sys.exit(1)
+
+def update_pg_hba_user():
+    """Update the username following 'replication' dynamically in pg_hba.conf."""
+    print("Updating pg_hba.conf with the new replication user...")
+    
+    try:
+        with open(PG_HBA_PATH, "r") as file:
+            lines = file.readlines()
+
+        # Update the line containing 'replication'
+        with open(PG_HBA_PATH, "w") as file:
+            for line in lines:
+                if line.startswith("host") and "replication" in line:
+                    # Replace the word following 'replication' with POSTGRES_USER
+                    parts = line.split()
+                    if len(parts) > 2:
+                        parts[2] = POSTGRES_USER  # Update the username dynamically
+                    line = "    ".join(parts) + "\n"  # Maintain proper spacing
+                file.write(line)
+
+        print("pg_hba.conf updated successfully!")
+    except Exception as e:
+        print(f"Failed to update pg_hba.conf: {e}")
+        sys.exit(1)
+
 
 def build_masterDB():
     """Build the master DB Docker container."""
@@ -70,15 +97,18 @@ def main():
     """Main entry point of the script."""
     print("Running the Docker automation script...")
 
-    # Step 1: Build the services
+    # Step 1: Update pg_hba.conf with the new user
+    update_pg_hba_user()
+
+    # Step 2: Build the services
     build_masterDB()
     build_backend()
     build_slaveDB()
 
-    # Step 2: Bring up the docker-compose services
+    # Step 3: Bring up the docker-compose services
     docker_compose_up()
 
-    # Step 3: Execute script inside the backend container
+    # Step 4: Execute script inside the backend container (Optional)
     # execute_in_container()
 
     print("All services are up and running!")
