@@ -6,13 +6,16 @@ services:
       - "--api.insecure=true"
       - "--providers.docker"
       - "--entrypoints.postgres.address=:5432"
-      - "--entrypoints.amqp.address=:5671"
+      - "--entrypoints.web.address=:80"      # PostgreSQL entry point
+      - "--entrypoints.amqp.address=:5671"          # RabbitMQ AMQP entry point
+      - "--entrypoints.metrics.address=:9100"       # Metrics entry point for Prometheus
+      - "--metrics.prometheus=true"                 # Enable Prometheus metrics
+      - "--metrics.prometheus.entryPoint=metrics"   # Use the defined metrics entry point
       - "--log.level=DEBUG"
-      - "--log.format=json"
       - "--log.filePath=/traefik.log"
-      - "--accesslog=true"
     ports:
       - "8080:8080"
+      - "80:80"
     networks:
       pg-cluster-net:
         aliases:
@@ -118,7 +121,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
-      - "traefik.enable=false"
+        - "traefik.enable=true"
+        - "traefik.http.routers.nginx.rule=Host(`nginx.example.in`)"
+        - "traefik.http.services.nginx.loadbalancer.server.port=8000"
+        - "traefik.http.routers.nginx.entrypoints=web"
+
 
   rabbitmq:
     build:
@@ -126,6 +133,8 @@ services:
       dockerfile: Dockerfile
     container_name: rabbitmq
     hostname: rabbitmq
+    ports:
+      - 15672:15672
     labels:
       - "traefik.enable=true"
       - "traefik.tcp.routers.amqp.rule=HostSNI(`*`)" 
@@ -140,10 +149,34 @@ services:
       - "RABBITMQ_SSL: false"
     networks:
       - pg-cluster-net 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
+    networks:
+      - pg-cluster-net
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    networks:
+      - pg-cluster-net
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin  # Default Grafana password
+    restart: always
 
 volumes:
   master_data:
   slave_data:
+  grafana-data:
 
 networks:
   pg-cluster-net:
