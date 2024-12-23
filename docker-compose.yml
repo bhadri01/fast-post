@@ -5,14 +5,15 @@ services:
     command:
       - "--api.insecure=true"
       - "--providers.docker"
+      - "--providers.file.filename=/etc/traefik/traefik_dynamic.yml"
       - "--entrypoints.postgres.address=:5432"
+      - "--entrypoints.postgres_slave.address=:5433"
       - "--entrypoints.web.address=:80"      # PostgreSQL entry point
       - "--entrypoints.amqp.address=:5671"          # RabbitMQ AMQP entry point
       - "--entrypoints.metrics.address=:9100"       # Metrics entry point for Prometheus
       - "--metrics.prometheus=true"                 # Enable Prometheus metrics
       - "--metrics.prometheus.entryPoint=metrics"   # Use the defined metrics entry point
       - "--log.level=DEBUG"
-      - "--log.filePath=/traefik.log"
     ports:
       - "8080:8080"
       - "80:80"
@@ -23,6 +24,7 @@ services:
           - "slave.db"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik_dynamic.yml:/etc/traefik/traefik_dynamic.yml:ro 
     restart: always
     labels:
       - "traefik.enable=false" 
@@ -39,15 +41,86 @@ services:
     networks:
       - pg-cluster-net
     labels:
-      - "traefik.enable=true"
-      - "traefik.tcp.routers.master-db.rule=HostSNI(`master.db`)"
-      - "traefik.tcp.routers.master-db.entrypoints=postgres"
-      - "traefik.tcp.routers.master-db.service=master-db"
-      - "traefik.tcp.routers.master-db.tls=true"
-      - "traefik.tcp.routers.master-db.tls.certresolver=myresolver"
-      - "traefik.tcp.routers.master.tls.passthrough=true"
-      - "traefik.tcp.services.master-db.loadbalancer.server.port=5432"
+    - "traefik.tcp.routers.master-db.rule=HostSNI(`*`)"
+    - "traefik.tcp.routers.master-db.entrypoints=postgres"
+    - "traefik.tcp.routers.master-db.service=master-db"
+    - "traefik.tcp.routers.master-db.tls=false"
+    - "traefik.tcp.services.master-db.loadbalancer.server.port=5432"
     restart: always  # Add this line to restart on failure
+
+
+  slave-db:
+    build:
+      context: ./slavedb
+      dockerfile: Dockerfile
+    container_name: slave-db
+    # depends_on:
+    #   - master-db
+    #   - adminer
+    networks:
+      - pg-cluster-net
+    labels:
+    - "traefik.tcp.routers.slave-db.rule=HostSNI(`*`)"
+    - "traefik.tcp.routers.slave-db.entrypoints=postgres_slave"
+    - "traefik.tcp.routers.slave-db.service=slave-db"
+    - "traefik.tcp.routers.slave-db.tls=false"
+    - "traefik.tcp.services.slave-db.loadbalancer.server.port=5433"
+    restart: always  # Add this line to restart on failure
+
+  slave-db-2:
+    image: fast-post-slave-db:latest
+    container_name: slave-db-2
+    # depends_on:
+    #   - master-db
+    #   - adminer
+    #   - slave-db
+    networks:
+      - pg-cluster-net
+    labels:
+    - "traefik.tcp.routers.slave-db.rule=HostSNI(`*`)"
+    - "traefik.tcp.routers.slave-db.entrypoints=postgres_slave"
+    - "traefik.tcp.routers.slave-db.service=slave-db"
+    - "traefik.tcp.routers.slave-db.tls=false"
+    - "traefik.tcp.services.slave-db.loadbalancer.server.port=5433"
+    restart: always  # Add this line to restart on failure
+
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: backend
+  #   hostname: backend
+  #   # depends_on:
+  #   #   - traefik
+  #   #   - slave-db
+  #   #   - slave-db-2
+  #   networks:
+  #     - pg-cluster-net
+  #   restart: always 
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   labels:
+  #       - "traefik.enable=true"
+  #       - "traefik.http.routers.nginx.rule=Host(`nginx.example.in`)"
+  #       - "traefik.http.services.nginx.loadbalancer.server.port=8000"
+  #       - "traefik.http.routers.nginx.entrypoints=web" 
+
+  strapi:
+    image: registry.gitlab.com/succeedex/backend-crm-strapi/cms-strapi:latest
+    container_name: "strapi"
+    restart: always
+    hostname: strapi
+    env_file:
+      - .env
+    volumes:
+      - /home/black/.ssh:/home/node/.ssh
+    networks:
+      - pg-cluster-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.strapi.rule=Host(`strapi.example.in`)"
+      - "traefik.http.services.strapi.loadbalancer.server.port=8000"
+      - "traefik.http.routers.strapi.entrypoints=web" 
 
   adminer:
     container_name: "adminer"
@@ -64,119 +137,9 @@ services:
     labels:
       - "traefik.enable=false"
 
-  slave-db:
-    build:
-      context: ./slavedb
-      dockerfile: Dockerfile
-    container_name: slave-db
-    # depends_on:
-    #   - master-db
-    #   - adminer
-    networks:
-      - pg-cluster-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.tcp.routers.slave-db.rule=HostSNI(`slave.db`)"
-      - "traefik.tcp.routers.slave-db.entrypoints=postgres"
-      - "traefik.tcp.routers.slave-db.service=slave-db"
-      - "traefik.tcp.routers.slave-db.tls=true"
-      - "traefik.tcp.routers.slave-db.tls.certresolver=myresolver"
-      - "traefik.tcp.routers.slave-db.tls.passthrough=false"
-      - "traefik.tcp.services.slave-db.loadbalancer.server.port=5432"
-    restart: always  # Add this line to restart on failure
-
-  slave-db-2:
-    image: fast-post-slave-db:latest
-    container_name: slave-db-2
-    # depends_on:
-    #   - master-db
-    #   - adminer
-    #   - slave-db
-    networks:
-      - pg-cluster-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.tcp.routers.slave-db.rule=HostSNI(`slave.db`)"
-      - "traefik.tcp.routers.slave-db.entrypoints=postgres"
-      - "traefik.tcp.routers.slave-db.service=slave-db"
-      - "traefik.tcp.routers.slave-db.tls=true"
-      - "traefik.tcp.routers.slave-db.tls.certresolver=myresolver"
-      - "traefik.tcp.routers.slave-db.tls.passthrough=false"
-      - "traefik.tcp.services.slave-db.loadbalancer.server.port=5432"
-    restart: always  # Add this line to restart on failure
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: backend
-    hostname: backend
-    # depends_on:
-    #   - traefik
-    #   - slave-db
-    #   - slave-db-2
-    networks:
-      - pg-cluster-net
-    restart: always 
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.nginx.rule=Host(`nginx.example.in`)"
-        - "traefik.http.services.nginx.loadbalancer.server.port=8000"
-        - "traefik.http.routers.nginx.entrypoints=web"
-
-
-  rabbitmq:
-    build:
-      context: ./rabbitmq
-      dockerfile: Dockerfile
-    container_name: rabbitmq
-    hostname: rabbitmq
-    ports:
-      - 15672:15672
-    labels:
-      - "traefik.enable=true"
-      - "traefik.tcp.routers.amqp.rule=HostSNI(`*`)" 
-      - "traefik.tcp.routers.amqp.entrypoints=amqp"
-      - "traefik.tcp.routers.amqp.tls=true"
-      - "traefik.tcp.routers.amqp.tls.certresolver=myresolver"
-      - "traefik.tcp.routers.amqp.tls.passthrough=false"
-      - "traefik.tcp.services.amqp.loadbalancer.server.port=5671"
-
-    restart: always
-    environment:
-      - "RABBITMQ_SSL: false"
-    networks:
-      - pg-cluster-net 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-
-    networks:
-      - pg-cluster-net
-    ports:
-      - "9090:9090"
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    networks:
-      - pg-cluster-net
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana-data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin  # Default Grafana password
-    restart: always
-
 volumes:
   master_data:
   slave_data:
-  grafana-data:
 
 networks:
   pg-cluster-net:

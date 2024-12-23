@@ -40,7 +40,7 @@ def build_masterDB():
     run_command(
         f"docker compose build master-db --build-arg POSTGRES_USER={POSTGRES_USER} "
         f"--build-arg POSTGRES_PASSWORD={POSTGRES_PASSWORD} "
-        f"--build-arg POSTGRES_DB={POSTGRES_DB} --no-cache"
+        f"--build-arg POSTGRES_DB={POSTGRES_DB}"
     )
 
 def build_slaveDB():
@@ -49,17 +49,17 @@ def build_slaveDB():
     run_command(
         f"docker compose build slave-db --build-arg POSTGRES_USER={POSTGRES_USER} "
         f"--build-arg POSTGRES_PASSWORD={POSTGRES_PASSWORD} "
-        f"--build-arg POSTGRES_DB={POSTGRES_DB} --no-cache"
+        f"--build-arg POSTGRES_DB={POSTGRES_DB}"
     )
 
-def build_backend():
-    """Build the backend Docker container."""
-    print(Fore.YELLOW + "🚀 📦 Building the 🌐 Backend container...")
-    run_command(
-        f"docker compose build backend --build-arg GITLAB_ACCESS_TOKEN={GITLAB_ACCESS_TOKEN} "
-        f"--build-arg POSTGRES_USER={POSTGRES_USER} " 
-        f"--build-arg POSTGRES_DB={POSTGRES_DB} --no-cache"
-    )
+# def build_backend():
+#     """Build the backend Docker container."""
+#     print(Fore.YELLOW + "🚀 📦 Building the 🌐 Backend container...")
+#     run_command(
+#         f"docker compose build backend --build-arg GITLAB_ACCESS_TOKEN={GITLAB_ACCESS_TOKEN} "
+#         f"--build-arg POSTGRES_USER={POSTGRES_USER} " 
+#         f"--build-arg POSTGRES_DB={POSTGRES_DB}"
+#     )
 
 def docker_compose_up():
     """Run docker-compose up to start all services."""
@@ -78,7 +78,7 @@ def main():
 
     # Step 1: Build the services
     build_masterDB()
-    build_backend()
+    # build_backend()
     build_slaveDB()
 
     # Step 2: Bring up the docker-compose services

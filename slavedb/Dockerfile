@@ -17,6 +17,7 @@ CMD bash -c "\
   until ping -c1 master-db; do sleep 1; done; \
   rm -rf /var/lib/postgresql/data/*; \
   PGPASSWORD=$POSTGRES_PASSWORD pg_basebackup -h master-db -D /var/lib/postgresql/data -U $POSTGRES_USER -Fp -Xs -P -R; \
+  echo \"port = 5433\" >> /var/lib/postgresql/data/postgresql.auto.conf; \
   chown -R postgres:postgres /var/lib/postgresql/data; \
   chmod 700 /var/lib/postgresql/data; \
   exec gosu postgres postgres"
